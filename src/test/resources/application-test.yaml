@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:facelit;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;DATABASE_TO_LOWER=TRUE;INIT=CREATE SCHEMA IF NOT EXISTS academic\;CREATE SCHEMA IF NOT EXISTS security\;CREATE SCHEMA IF NOT EXISTS environment
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+        hbm2ddl:
+          create_namespaces: true
+    show-sql: false
+
+  liquibase:
+    enabled: false
+
+facial:
+  embedding:
+    api-key: test-only-internal-service-key

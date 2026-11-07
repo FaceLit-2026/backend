@@ -1,0 +1,67 @@
+spring:
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 20000
+      leak-detection-threshold: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: ${FACELIT_SHOW_SQL:false}
+
+  liquibase:
+    enabled: false
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+server:
+  port: 8080
+
+springdoc:
+  paths-to-match: /api/**
+  paths-to-exclude: /api/facial/challenge,/api/facial/enrollment,/api/facial/profile-photo
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 28800000
+
+facial:
+  embedding:
+    url: ${FACIAL_EMBEDDING_URL:http://localhost:8090}
+    api-key: ${FACIAL_EMBEDDING_API_KEY:}
+
+facelit:
+  bootstrap:
+    coordinator:
+      enabled: ${FACELIT_COORDINATOR_BOOTSTRAP:false}
+      rotate-password: ${FACELIT_COORDINATOR_ROTATE_PASSWORD:false}
+      exit-after: ${FACELIT_COORDINATOR_EXIT_AFTER:false}
+      document: ${FACELIT_COORDINATOR_DOCUMENT:}
+      first-name: ${FACELIT_COORDINATOR_FIRST_NAME:}
+      last-name: ${FACELIT_COORDINATOR_LAST_NAME:}
+      email: ${FACELIT_COORDINATOR_EMAIL:}
+      password: ${FACELIT_COORDINATOR_PASSWORD:}
+  allowed-origins: ${FACELIT_ALLOWED_ORIGINS:http://localhost:8081,http://localhost:19006,https://facelit-ten.vercel.app}
+  access-url: ${FACELIT_ACCESS_URL:http://localhost:8081}

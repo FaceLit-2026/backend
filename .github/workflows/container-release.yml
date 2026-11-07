@@ -1,0 +1,41 @@
+name: Build reviewed container release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and publish revision-tagged image
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GH_REPOSITORY,,}:sha-${GITHUB_SHA}-run-${GITHUB_RUN_NUMBER}"
+          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag "$image" .
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GH_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          docker push "$image"
+          docker inspect --format '{{index .RepoDigests 0}}' "$image" > release-image.txt
+          printf 'Revision: %s\nImage: %s\n' "$GITHUB_SHA" "$image" >> release-image.txt
+          cat release-image.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: container-release-reference
+          path: release-image.txt
+          if-no-files-found: error
