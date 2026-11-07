@@ -1,0 +1,142 @@
+name: facelit-production
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Private environment required}
+      POSTGRES_USER: ${POSTGRES_USER:?Private environment required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Private environment required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    labels:
+      facelit.source.repository: https://github.com/FaceLit-2026/db
+      facelit.source.revision: ${DB_REVISION:?Release manifest required}
+    logging: *logging
+
+  migrate:
+    image: facelit-v2-migrate:${DB_REVISION:?Release manifest required}
+    build:
+      context: ../../../db
+      dockerfile: docker/liquibase/Dockerfile
+      labels:
+        org.opencontainers.image.source: https://github.com/FaceLit-2026/db
+        org.opencontainers.image.revision: ${DB_REVISION}
+    profiles: [tools]
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      LIQUIBASE_COMMAND_USERNAME: ${POSTGRES_USER}
+      LIQUIBASE_COMMAND_PASSWORD: ${POSTGRES_PASSWORD}
+    working_dir: /workspace
+    volumes:
+      - ../../../db:/workspace:ro
+    entrypoint: [liquibase, --search-path=/workspace, --changelog-file=changelog-master.yaml, --classpath=/liquibase/liquibase_libs/postgresql-42.7.8.jar]
+    command: [update]
+    logging: *logging
+
+  facial:
+    image: facelit-v2-facial:${MICROSERVICE_REVISION:?Release manifest required}
+    build:
+      context: ../../../microservice
+      labels:
+        org.opencontainers.image.source: https://github.com/FaceLit-2026/microservice
+        org.opencontainers.image.revision: ${MICROSERVICE_REVISION}
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      API_KEY: ${FACIAL_API_KEY:?Private environment required}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      PRELOAD_MODEL: "true"
+      CORS_ORIGINS: '[]'
+      OMP_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+    volumes:
+      - facial_models:/home/facelit/.insightface
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/health', timeout=5).close()"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 20
+    logging: *logging
+
+  backend:
+    image: facelit-v2-backend:${BACKEND_REVISION:?Release manifest required}
+    build:
+      context: ../..
+      labels:
+        org.opencontainers.image.source: https://github.com/FaceLit-2026/backend
+        org.opencontainers.image.revision: ${BACKEND_REVISION}
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Private environment required}
+      MAIL_USERNAME: ${MAIL_USERNAME:?Private environment required}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:?Private environment required}
+      SPRING_MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      SPRING_MAIL_PORT: ${MAIL_PORT:-587}
+      FACIAL_EMBEDDING_URL: http://facial:8090
+      FACIAL_EMBEDDING_API_KEY: ${FACIAL_API_KEY}
+      FACELIT_ACCESS_URL: https://${DOMAIN:?Private environment required}
+      FACELIT_ALLOWED_ORIGINS: ${FACELIT_ALLOWED_ORIGINS:-https://${DOMAIN}}
+      SPRING_JPA_SHOW_SQL: "false"
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=50.0
+    logging: *logging
+
+  web:
+    image: facelit-v2-web:${FRONTEND_REVISION:?Release manifest required}
+    build:
+      context: ../../..
+      dockerfile: backend/deploy/hostinger/web.Dockerfile
+      args:
+        PUBLIC_ORIGIN: https://${DOMAIN}
+      labels:
+        org.opencontainers.image.source: https://github.com/FaceLit-2026/frontend
+        org.opencontainers.image.revision: ${FRONTEND_REVISION}
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESSES: ${SITE_ADDRESSES:-${DOMAIN}}
+      FACELIT_RELEASE_ID: ${RELEASE_ID:?Release manifest required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *logging
+
+# Explicit existing names prevent an accidental empty database during migration.
+volumes:
+  postgres_data:
+    external: true
+    name: facelit-production_postgres_data
+  facial_models:
+    external: true
+    name: facelit-production_facial_models
+  caddy_data:
+    external: true
+    name: facelit-production_caddy_data
+  caddy_config:
+    external: true
+    name: facelit-production_caddy_config
+
+networks:
+  default:
+    external: true
+    name: facelit-production_default

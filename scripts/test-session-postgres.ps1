@@ -1,5 +1,5 @@
 param(
-    [string]$DatabaseRepository = (Join-Path $PSScriptRoot '../../FaceLit-DB'),
+    [string]$DatabaseRepository = (Join-Path $PSScriptRoot '../../db'),
     [string]$MavenCommand = (Join-Path $PSScriptRoot '../mvnw.cmd')
 )
 $ErrorActionPreference = 'Stop'

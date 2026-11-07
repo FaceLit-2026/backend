@@ -1,0 +1,21 @@
+{$SITE_ADDRESSES} {
+    encode zstd gzip
+    request_body {
+        max_size 25MB
+    }
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "camera=(self), microphone=()"
+        X-FaceLit-Release {$FACELIT_RELEASE_ID}
+    }
+    @backend path /api/* /ws/*
+    handle @backend {
+        reverse_proxy backend:8080
+    }
+    handle {
+        root * /srv
+        try_files {path} {path}.html {path}/index.html /index.html
+        file_server
+    }
+}

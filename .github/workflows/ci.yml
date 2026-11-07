@@ -91,9 +91,9 @@ jobs:
       - name: Checkout reviewed database schema
         uses: actions/checkout@v4
         with:
-          repository: FaceID-Proyect-2026/FaceLit-DB
+          repository: FaceLit-2026/db
           # Includes notice_version and the initial_password_changed user flag.
-          ref: 872bbc9dfffec1a1c3930caccb91644787ede4da
+          ref: 0de3809fa1f5459f39ccdfd18005696857813be6
           path: database
 
       - name: Setup Java 17
@@ -156,3 +156,15 @@ jobs:
       - name: Remove disposable PostgreSQL
         if: always()
         run: docker compose -f database/docker-compose.yml -p backend-ci down --volumes --remove-orphans
+
+  deployment-tooling:
+    name: Release package safety
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify package source and credential exclusions
+        run: python -m unittest discover -s deploy/hostinger/tests -v

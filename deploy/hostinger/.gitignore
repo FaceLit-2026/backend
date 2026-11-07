@@ -1,0 +1,7 @@
+.env
+*.env
+!.env.example
+release-manifest.json
+*.tar.gz
+*.log
+__pycache__/
