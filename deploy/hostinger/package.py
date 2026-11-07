@@ -1,5 +1,6 @@
 """Create a public release exclusively from committed FaceLit-2026 sources."""
 import argparse, hashlib, io, json, subprocess, tarfile
+import copy
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
@@ -34,7 +35,7 @@ def build(project, output, preview=False, fetch=False):
     release_id = 'facelit-2026-' + stamp + ('-preview' if preview else '')
     manifest = {'releaseId': release_id, 'organization': 'FaceLit-2026', 'domain': 'facelit.tech',
                 'generatedAtUtc': datetime.now(timezone.utc).isoformat(), 'preview': preview,
-                'sources': sources}
+                'sources': sources, 'reviewedFrontendCommit': sources[0]['commit']}
     env = 'RELEASE_ID=' + release_id + '\n'
     env += ''.join(row['repository'].upper() + '_REVISION=' + row['commit'] + '\n' for row in sources)
     output.mkdir(parents=True, exist_ok=True)
@@ -53,6 +54,12 @@ def build(project, output, preview=False, fetch=False):
                     if entry.issym() or entry.islnk():
                         raise RuntimeError('Review symbolic links before packaging: ' + entry.name)
                     result.addfile(entry, source.extractfile(entry) if entry.isfile() else None)
+                    # A regression test compares the landing route with its committed source.
+                    # Export that source reference rather than including .git or Git credentials.
+                    if name == 'frontend' and entry.isfile() and PurePosixPath(entry.name).suffix in {'.ts', '.tsx', '.js', '.jsx', '.json'}:
+                        reference = copy.copy(entry)
+                        reference.name = 'reviewed-frontend/' + '/'.join(parts[1:])
+                        result.addfile(reference, source.extractfile(entry))
         for name, data in [('release-manifest.json', json.dumps(manifest, indent=2).encode()),
                            ('release.env', env.encode())]:
             entry = tarfile.TarInfo(name); entry.size = len(data); entry.mode = 0o644

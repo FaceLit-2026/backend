@@ -26,6 +26,9 @@ class PackageSafetyTest(unittest.TestCase):
             self.git(name, 'remote', 'add', 'origin', 'https://github.com/FaceLit-2026/' + name + '.git')
             (p / '.gitignore').write_text('.env\n')
             (p / 'app.txt').write_text('public committed source\n')
+            if name == 'frontend':
+                (p / 'app').mkdir()
+                (p / 'app/index.tsx').write_text('export default function Landing() { return null; }\n')
             (p / '.env').write_text('TEST_ONLY=not-a-real-credential\n')
             self.git(name, 'add', '.'); self.git(name, 'commit', '-m', 'test source')
             self.git(name, 'update-ref', 'refs/remotes/origin/main', self.git(name, 'rev-parse', 'HEAD'))
@@ -51,6 +54,8 @@ class PackageSafetyTest(unittest.TestCase):
             self.assertFalse(any(Path(n).name == '.env' for n in t.getnames()))
             manifest = json.load(t.extractfile('release-manifest.json'))
             self.assertFalse(manifest['preview'])
+            self.assertEqual(manifest['reviewedFrontendCommit'], self.git('frontend', 'rev-parse', 'HEAD'))
+            self.assertEqual(t.extractfile('reviewed-frontend/app/index.tsx').read(), t.extractfile('frontend/app/index.tsx').read())
             for row in manifest['sources']:
                 self.assertEqual(row['branch'], 'main')
                 self.assertEqual(row['commit'], self.git(row['repository'], 'rev-parse', 'HEAD'))

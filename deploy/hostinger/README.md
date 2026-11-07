@@ -37,6 +37,11 @@ Proyecto-Final-v2/
    el archivo comprimido, su SHA-256, `release.env` con revisiones públicas y
    `release-manifest.json`. Un paquete `--preview` sirve para revisión y
    construcción; el controlador impide activarlo.
+
+   También exporta `reviewed-frontend` desde ese mismo commit. Esa referencia
+   permite ejecutar la prueba de regresión de la pantalla inicial sin incluir
+   `.git` en el paquete. En el repositorio, la prueba conserva su comparación
+   normal con `git show HEAD`.
 3. Transferir el paquete por SSH/SCP, comprobar su SHA-256 y extraerlo en un
    directorio nuevo `/opt/facelit-v2/releases/<releaseId>`. Comprobar antes que
    los nombres del archivo comprimido no escapen de ese directorio.
